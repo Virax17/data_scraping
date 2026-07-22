@@ -1,0 +1,55 @@
+# First-boot defaults. After first startup these live in Mongo and are edited
+# from the Settings UI — this file is never read again except to seed new keys.
+
+auto_mode: false                  # off by default — reveal never fires without an explicit confirm
+auto_approve_confidence: 0.8
+
+sweep_cap_per_company: 1000       # max free previews pulled per company
+reveal_cap_per_company: 10        # fallback used when a company's size_tier is unknown
+run_credit_budget: 0              # 0 = any reveal attempt is flagged over-budget and needs a forced confirm
+
+# Per-company reveal cap scaled by size_tier — bigger companies get more
+# contacts revealed, smaller companies fewer. Falls back to
+# reveal_cap_per_company above when a company's size_tier couldn't be
+# determined (org headcount missing).
+reveal_cap_by_size_tier:
+  micro: 5
+  small: 6
+  mid: 10
+  large: 15
+  enterprise: 20
+
+engine_order: [apollo, lusha]
+lusha_fallback: true
+reveal_phone: false               # email-only by default
+
+# llm_provider: "anthropic" | "cerebras". Cerebras is the free-tier default
+# for local testing (5 req/min, 8K context cap) — switch to anthropic for
+# production-quality judgments. judge_batch_size and llm_model are per-provider
+# below; only the active provider's values are used.
+llm_provider: cerebras
+llm_model: claude-opus-4-8          # used when llm_provider: anthropic
+judge_batch_size: 150               # used when llm_provider: anthropic
+
+cerebras_model: gpt-oss-120b
+cerebras_judge_batch_size: 15        # small on purpose — fits the 8K context cap
+
+verdict_cache: true
+never_send_titles: []             # cost-control pre-trim; OFF by default — LLM sees everyone
+
+contact_freshness_days: 90        # skip re-enriching contacts revealed within this window
+
+size_tier_bounds:
+  micro: [0, 49]
+  small: [50, 200]
+  mid: [201, 1000]
+  large: [1001, 5000]
+  enterprise: [5001, null]
+
+# Seniority bands used only when a company exceeds sweep_cap_per_company —
+# pulled in this order until the cap is reached, most senior first.
+seniority_bands:
+  - [owner, founder, c_suite, partner]
+  - [vp, head, director]
+  - [manager, senior]
+  - [entry]

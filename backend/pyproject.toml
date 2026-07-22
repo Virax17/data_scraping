@@ -1,0 +1,25 @@
+[project]
+name = "tritorc-enrich-backend"
+version = "0.1.0"
+description = "Tritorc Enrichment v3 — LLM-judged B2B contact enrichment pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "beanie>=1.26",
+    "motor>=3.5",
+    "httpx>=0.27",
+    "anthropic>=0.116",
+    "openpyxl>=3.1",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "mongomock-motor>=0.0.29"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

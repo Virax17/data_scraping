@@ -1,0 +1,273 @@
+{
+  "industries": {
+    "Wind Energy": {
+      "IPP (Independent Power Producers)": [
+        "Adani Green Energy",
+        "ReNew Power",
+        "JSW Energy",
+        "Suzlon Energy"
+      ],
+      "OEM of Wind Turbines": [
+        "Suzlon",
+        "Envision Energy",
+        "Siemens Gamesa",
+        "Vestas",
+        "GE Renewable Energy"
+      ],
+      "EPC Contractors (Wind Projects)": [
+        "Larsen & Toubro (L&T)",
+        "Sterling & Wilson",
+        "Inox Wind EPC",
+        "Shapoorji Pallonji Energy"
+      ],
+      "O&M Service Providers": [
+        "Suzlon Service",
+        "Vestas Service",
+        "Siemens Gamesa Service",
+        "Inox Wind O&M"
+      ]
+    },
+    "Bolted Infrastructure / Steel Structures": {
+      "Owner / End User": [
+        "Tata Projects",
+        "L&T Construction",
+        "Afcons Infrastructure",
+        "KEC International"
+      ],
+      "O&M for Structures": [
+        "Kalpataru Power",
+        "Gammon Engineers",
+        "Simplex Infrastructure"
+      ]
+    },
+    "Cement Industry": {
+      "Major Producers": [
+        "UltraTech Cement",
+        "ACC Cement",
+        "Ambuja Cement",
+        "Shree Cement",
+        "Dalmia Cement"
+      ],
+      "EPC / Plant Builders": [
+        "FLSmidth",
+        "ThyssenKrupp Industrial Solutions",
+        "Larsen & Toubro"
+      ]
+    },
+    "Fertilizers & Chemicals": {
+      "Plant Owners": [
+        "IFFCO",
+        "Gujarat State Fertilizers (GSFC)",
+        "Chambal Fertilizers",
+        "Deepak Fertilizers",
+        "Tata Chemicals"
+      ],
+      "EPC / Engineering": [
+        "Toyo Engineering",
+        "Technip Energies",
+        "L&T Hydrocarbon"
+      ]
+    },
+    "Industrial Heavy Engineering & Automation": {
+      "OEM / Manufacturers": [
+        "Larsen & Toubro Heavy Engineering",
+        "ISGEC Heavy Engineering",
+        "BHEL",
+        "Godrej & Boyce"
+      ],
+      "Automation / Systems Integrators": [
+        "Siemens",
+        "ABB",
+        "Schneider Electric"
+      ]
+    },
+    "Mining": {
+      "Mining Companies": [
+        "Coal India",
+        "Vedanta",
+        "NMDC",
+        "Hindustan Zinc"
+      ],
+      "Mining Equipment OEMs": [
+        "Caterpillar",
+        "Komatsu",
+        "Sandvik",
+        "Metso"
+      ]
+    },
+    "Oil & Gas": {
+      "Operators / End Users": [
+        "Reliance Industries",
+        "ONGC",
+        "BPCL",
+        "HPCL",
+        "IOCL"
+      ],
+      "EPC Contractors": [
+        "Larsen & Toubro Hydrocarbon",
+        "Technip Energies",
+        "Saipem",
+        "McDermott",
+        "Petrofac"
+      ],
+      "Service Contractors": [
+        "Brock Group",
+        "Bilfinger",
+        "EnerMech",
+        "Sparrows Group"
+      ]
+    },
+    "Power Plants": {
+      "Owners": [
+        "NTPC",
+        "Tata Power",
+        "Adani Power",
+        "JSW Energy"
+      ],
+      "OEM": [
+        "GE Power",
+        "Siemens Energy",
+        "Mitsubishi Power",
+        "BHEL"
+      ],
+      "EPC": [
+        "L&T Power",
+        "Doosan Heavy"
+      ]
+    },
+    "Railways": {
+      "Owner / Operator": [
+        "Indian Railways",
+        "Dedicated Freight Corridor Corp"
+      ],
+      "OEM": [
+        "Alstom",
+        "Siemens Mobility",
+        "Bombardier (Alstom)"
+      ],
+      "EPC": [
+        "L&T",
+        "Afcons Infrastructure"
+      ]
+    },
+    "Shipbuilding": {
+      "Shipyards": [
+        "Mazagon Dock Shipbuilders",
+        "Cochin Shipyard",
+        "Garden Reach Shipbuilders",
+        "L&T Shipbuilding"
+      ],
+      "OEM / Marine Systems": [
+        "Wärtsilä",
+        "MAN Energy Solutions"
+      ]
+    },
+    "Steel Industry": {
+      "Producers": [
+        "Tata Steel",
+        "JSW Steel",
+        "ArcelorMittal Nippon Steel",
+        "SAIL"
+      ],
+      "EPC / Plant Builders": [
+        "Danieli",
+        "SMS Group"
+      ]
+    },
+    "Offshore Oil & Gas": {
+      "Operators": [
+        "ONGC Offshore",
+        "Saudi Aramco",
+        "ADNOC Offshore",
+        "Petrobras"
+      ],
+      "EPC Contractors": [
+        "McDermott",
+        "Saipem",
+        "TechnipFMC"
+      ],
+      "Service Providers": [
+        "EnerMech",
+        "Bilfinger"
+      ]
+    },
+    "Others (Process Industries)": {
+      "Industries": [
+        "LNG terminals",
+        "Refineries",
+        "Petrochemical complexes",
+        "LNG shipping"
+      ],
+      "Examples": [
+        "GAIL",
+        "Petronet LNG",
+        "Shell",
+        "ExxonMobil"
+      ]
+    }
+  },
+  "bolting_use_cases": {
+    "Wind Energy": [
+      "Tower bolting",
+      "Blade root bolts",
+      "Foundation anchor bolts",
+      "Turbine maintenance"
+    ],
+    "Bolted Infrastructure / Steel Structures": [
+      "Bridge bolting",
+      "Structural steel tightening",
+      "High strength friction grip bolts"
+    ],
+    "Cement Industry": [
+      "Kiln flange bolting",
+      "Gearbox maintenance",
+      "Crusher assembly"
+    ],
+    "Fertilizers & Chemicals": [
+      "Reactor bolting",
+      "Pressure vessel flange tightening",
+      "Shutdown maintenance"
+    ],
+    "Industrial Heavy Engineering & Automation": [
+      "Heavy equipment assembly",
+      "Pressure vessel fabrication",
+      "Large equipment bolting"
+    ],
+    "Mining": [
+      "Crusher bolting",
+      "Excavator assembly",
+      "Heavy mining equipment maintenance"
+    ],
+    "Oil & Gas": [
+      "Flange management",
+      "Shutdown bolting",
+      "Heat exchanger retubing",
+      "Pipeline services"
+    ],
+    "Power Plants": [
+      "Turbine casing bolts",
+      "Boiler flange bolts",
+      "Heat exchanger maintenance"
+    ],
+    "Railways": [
+      "Track infrastructure bolts",
+      "Rolling stock assembly",
+      "Bridge bolting"
+    ],
+    "Shipbuilding": [
+      "Propulsion system bolts",
+      "Hull structural bolts",
+      "Engine maintenance"
+    ],
+    "Steel Industry": [
+      "Rolling mill equipment",
+      "Furnace flange bolts",
+      "Heavy equipment assembly"
+    ],
+    "Offshore Oil & Gas": [
+      "Subsea flange bolting",
+      "Offshore platform maintenance",
+      "Pipeline services"
+    ]
+  }
+}

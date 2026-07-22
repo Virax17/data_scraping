@@ -1,0 +1,214 @@
+{
+  "End User (Plant / Facility Owner)": {
+    "Leadership & Senior overlay": [
+      "Plant Head",
+      "Plant Manager",
+      "Unit Head",
+      "Site Director",
+      "Facility Director",
+      "Operations Director",
+      "Technical Director",
+      "Head – Engineering",
+      "Head – Maintenance",
+      "VP Engineering",
+      "VP Operations",
+      "VP Maintenance"
+    ],
+    "Maintenance & Mechanical": [
+      "Maintenance Manager",
+      "Senior Maintenance Manager",
+      "Mechanical Maintenance Manager",
+      "Head – Mechanical",
+      "Mechanical Manager",
+      "Maintenance Superintendent",
+      "Mechanical Superintendent"
+    ],
+    "Engineering & Reliability": [
+      "Engineering Manager",
+      "Mechanical Engineering Manager",
+      "Reliability Manager",
+      "Reliability Engineer",
+      "Asset Integrity Manager",
+      "Equipment Reliability Engineer",
+      "Condition Monitoring Manager"
+    ],
+    "Operations & Turnarounds": [
+      "Operations Manager",
+      "Production Manager",
+      "Turnaround Manager",
+      "Shutdown Manager",
+      "Turnaround Planning Manager",
+      "Planning & Scheduling Manager"
+    ],
+    "Quality, Inspection & Integrity": [
+      "Inspection Manager",
+      "Integrity Engineer",
+      "RBI Engineer",
+      "Static Equipment Engineer",
+      "Pressure Equipment Engineer"
+    ],
+    "Commercial & Growth": [
+      "Procurement Manager",
+      "Supply Chain Manager",
+      "MRO Category Manager"
+    ]
+  },
+  "Industrial Equipment Rental Companies": {
+    "Leadership & Senior overlay": [
+      "Owner",
+      "Founder",
+      "Managing Director",
+      "Executive Director",
+      "CEO",
+      "VP Engineering",
+      "VP Operations",
+      "VP Fleet"
+    ],
+    "Engineering & Reliability": [
+      "Technical Manager",
+      "Engineering Manager",
+      "Service Manager",
+      "Maintenance Manager (Rental Fleet)",
+      "Workshop Manager"
+    ],
+    "Operations & Turnarounds": [
+      "Director – Operations",
+      "Head – Operations",
+      "Operations Manager",
+      "Rental Operations Manager",
+      "Fleet Manager",
+      "Rental Fleet Manager",
+      "Equipment Manager",
+      "Asset Manager (Rental Fleet)"
+    ],
+    "Procurement": [
+      "Procurement Manager",
+      "Purchase Manager",
+      "Strategic Sourcing Manager",
+      "Supply Chain Manager"
+    ],
+    "Commercial & Growth": [
+      "Business Development Manager",
+      "Sales Director",
+      "Commercial Manager",
+      "Regional Manager",
+      "Branch Manager"
+    ]
+  },
+  "EPC / Project Engineering Organizations": {
+    "Leadership & Senior overlay": [
+      "Project Director",
+      "Project Manager",
+      "Senior Project Manager",
+      "Program Manager",
+      "Engineering Manager",
+      "Project Engineering Manager",
+      "Discipline Engineering Manager",
+      "VP Operations",
+      "VP Projects"
+    ],
+    "Maintenance & Mechanical": [
+      "Lead Mechanical Engineer",
+      "Mechanical Lead",
+      "Piping Lead",
+      "Lead Piping Engineer",
+      "Static Equipment Lead",
+      "Package Engineer",
+      "Construction Manager",
+      "Site Construction Manager",
+      "Commissioning Manager",
+      "Pre-Commissioning Manager"
+    ],
+    "Procurement": [
+      "Project Procurement Manager",
+      "Supply Chain Manager – Projects"
+    ],
+    "Quality, Inspection & Integrity": [
+      "QA/QC Manager (Mechanical)",
+      "Quality Manager",
+      "Project Controls Manager"
+    ]
+  },
+  "Service Providers / Turnaround & Bolting Specialists": {
+    "Leadership & Senior overlay": [
+      "Managing Director",
+      "Operations Director"
+    ],
+    "Engineering & Reliability": [
+      "Technical Manager",
+      "Bolting Manager",
+      "Flange Management Manager",
+      "Controlled Bolting Specialist",
+      "Bolting Supervisor",
+      "Hydraulic Tooling Supervisor",
+      "Tooling Manager",
+      "Equipment Manager",
+      "Workshop Manager"
+    ],
+    "Operations & Turnarounds": [
+      "Turnaround Manager",
+      "Shutdown Manager",
+      "Operations Manager",
+      "Project Manager",
+      "Site Manager"
+    ]
+  },
+  "Mechanical / Maintenance Contractors": {
+    "Leadership & Senior overlay": [
+      "Project Manager",
+      "Site Manager",
+      "Construction Manager",
+      "Field Operations Manager"
+    ],
+    "Maintenance & Mechanical": [
+      "Mechanical Supervisor",
+      "Maintenance Supervisor",
+      "Execution Manager"
+    ],
+    "Engineering & Reliability": [
+      "Tooling Manager",
+      "Equipment Coordinator",
+      "Fleet Supervisor"
+    ]
+  },
+  "OEMs / Manufacturers (Equipment, Packages, Skids)": {
+    "Leadership & Senior overlay": [
+      "VP Engineering",
+      "Owner",
+      "Founder",
+      "Managing Director/ director",
+      "CEO"
+    ],
+    "Maintenance & Mechanical": [
+      "Engineering Manager",
+      "Design Manager",
+      "Lead Design Engineer",
+      "Mechanical Design Engineer",
+      "Product Engineering Manager"
+    ],
+    "Operations & Turnarounds": [
+      "Application Engineer",
+      "Project Engineer",
+      "Package Engineer"
+    ],
+    "Quality, Inspection & Integrity": [
+      "Manufacturing Manager",
+      "Production Manager",
+      "Industrial Engineering Manager",
+      "Quality Manager",
+      "QA/QC Manager"
+    ]
+  },
+  "Procurement / Commercial (Cross-Cutting)": {
+    "Procurement": [
+      "Procurement Manager",
+      "Senior Procurement Manager",
+      "Purchase Manager",
+      "Strategic Sourcing Manager",
+      "Category Manager – MRO",
+      "Supply Chain Manager",
+      "Commercial Manager",
+      "Contracts Manager"
+    ]
+  }
+}
