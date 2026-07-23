@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 
 import openpyxl
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/api/runs", tags=["uploads"])
 
 
 def _parse_rows(filename: str, content: bytes) -> list[dict]:
-    """Extract {name, website} rows. Auto-detects the two columns by header."""
+    """Extract {name, website, country, city} rows. Auto-detects columns by
+    header; country/city are optional per-row region overrides."""
     rows: list[dict] = []
     if filename.lower().endswith(".csv"):
         import csv
@@ -41,31 +43,51 @@ def _parse_rows(filename: str, content: bytes) -> list[dict]:
                      if "name" in h or "company" in h), None)
     web_col = next((headers[h] for h in headers
                     if "website" in h or "domain" in h or "url" in h), None)
+    country_col = next((headers[h] for h in headers
+                        if "country" in h or "region" in h), None)
+    city_col = next((headers[h] for h in headers if "city" in h), None)
     if not name_col:
         raise HTTPException(422, "could not find a company-name column")
 
     for r in raw:
         name = str(r.get(name_col) or "").strip()
         website = str(r.get(web_col) or "").strip() if web_col else ""
+        country = str(r.get(country_col) or "").strip() if country_col else ""
+        city = str(r.get(city_col) or "").strip() if city_col else ""
         if name:
-            rows.append({"name": name, "website": website or None})
+            rows.append({"name": name, "website": website or None,
+                        "country": country or None, "city": city or None})
     return rows
 
 
 @router.post("", status_code=201)
 async def create_run(file: UploadFile = File(...),
-                     auto_mode: bool | None = Form(None)):
+                     auto_mode: bool | None = Form(None),
+                     country: str | None = Form(None),
+                     city: str | None = Form(None),
+                     search_options: str | None = Form(None)):
     content = await file.read()
     rows = _parse_rows(file.filename or "input.xlsx", content)
     if not rows:
         raise HTTPException(422, "no company rows found in file")
 
     settings = await get_live_settings()
+    try:
+        form_options = json.loads(search_options) if search_options else {}
+    except json.JSONDecodeError:
+        raise HTTPException(422, "search_options must be valid JSON")
+    options = {**(settings.get("search_defaults") or {}), **form_options}
+    if country:
+        options["country"] = country
+    if city:
+        options["city"] = city
+
     prompt = await ensure_active_prompt()
     run = Run(
         filename=file.filename or "input.xlsx",
         auto_mode=settings.get("auto_mode", True) if auto_mode is None else auto_mode,
         settings_snapshot=settings,
+        search_options=options,
         prompt_version=prompt.version,
         status="resolving",
     )
@@ -80,7 +102,9 @@ async def create_run(file: UploadFile = File(...),
             continue
         seen_domains.add(dedup_key)
         company = Company(run_id=run.id, input_name=row["name"],
-                          website=row["website"], domain=domain)
+                          website=row["website"], domain=domain,
+                          target_country=row["country"] or country or None,
+                          target_city=row["city"] or city or None)
         await company.insert()
         await enqueue("process_company", company_id=str(company.id))
         count += 1

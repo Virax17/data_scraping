@@ -63,11 +63,10 @@ def _compact_matrix(targeting: dict) -> str:
     return "\n".join(lines)
 
 
-def _render_prompt(body: str, compact: bool = False) -> str:
+def _render_prompt(body: str) -> str:
     targeting = load_targeting()
     icp = load_icp()
-    matrix_md = _compact_matrix(targeting) if compact else json.dumps(
-        targeting, indent=1, ensure_ascii=False)
+    matrix_md = _compact_matrix(targeting)
     icp_summary = ", ".join(icp.get("industries", {}).keys())
     return (body
             .replace("{{TARGETING_MATRIX}}", matrix_md)
@@ -111,9 +110,15 @@ async def judge_company(company, employees: list[Employee]) -> int:
     prompt = await ensure_active_prompt()
     provider = settings.get("llm_provider", "anthropic")
     is_cerebras = provider == "cerebras"
-    system = _render_prompt(prompt.body, compact=is_cerebras)
+    system = _render_prompt(prompt.body)
     customer_type = company.customer_type or "Unknown / Ambiguous"
-    use_cache = bool(settings.get("verdict_cache", True))
+    # classify_company() is a deterministic hint, not a gate -- when it can't
+    # resolve a customer_type, every such company shares this one literal
+    # cache key. Reading/writing verdicts under it would let a cached verdict
+    # for one ambiguous company's title (e.g. a civil-earthwork contractor)
+    # get silently reused for a completely different ambiguous company (e.g.
+    # a nuclear EPC firm) with the same title but a different real context.
+    use_cache = bool(settings.get("verdict_cache", True)) and company.customer_type is not None
     if is_cerebras:
         batch_size = int(settings.get("cerebras_judge_batch_size", 15))
         model = settings.get("cerebras_model", "gpt-oss-120b")
@@ -148,52 +153,68 @@ async def judge_company(company, employees: list[Employee]) -> int:
 
     for i in range(0, len(pending), batch_size):
         batch = pending[i:i + batch_size]
-        refs = {str(e.id): e for e in batch}
         payload = {
             "company": json.loads(_company_context(company)),
             "employees": [
                 {
-                    "ref": str(e.id),
+                    "ref": idx,
                     "name": e.full_name or f"{e.first_name or ''} {e.last_name or ''}".strip(),
                     "title": e.title,
                     "seniority": e.seniority,
                     "location": ", ".join(x for x in [e.city, e.country] if x),
                     "has_email_in_apollo": e.has_email,
                 }
-                for e in batch
+                for idx, e in enumerate(batch)
             ],
         }
         payload_json = json.dumps(payload, ensure_ascii=False)
 
         result: JudgeResponse | None = None
-        if is_cerebras:
-            raw = await cerebras_client.judge_completion(model, system, payload_json)
-            if raw is not None:
-                try:
-                    result = JudgeResponse(**raw)
-                except ValidationError as exc:
-                    log.error("cerebras judge output failed validation for company %s: %s",
-                             company.id, exc)
-        else:
-            response = await anthropic_client.messages.parse(
-                model=model,
-                max_tokens=16000,
-                system=[{"type": "text", "text": system,
-                         "cache_control": {"type": "ephemeral"}}],
-                messages=[{"role": "user", "content": payload_json}],
-                output_format=JudgeResponse,
+        for attempt in range(2):
+            error: Exception | None = None
+            try:
+                if is_cerebras:
+                    raw = await cerebras_client.judge_completion(model, system, payload_json)
+                    result = JudgeResponse(**raw) if raw is not None else None
+                else:
+                    response = await anthropic_client.messages.parse(
+                        model=model,
+                        max_tokens=16000,
+                        system=[{"type": "text", "text": system,
+                                 "cache_control": {"type": "ephemeral"}}],
+                        messages=[{"role": "user", "content": payload_json}],
+                        output_format=JudgeResponse,
+                    )
+                    result = response.parsed_output
+            except (ValidationError, anthropic.APIError) as exc:
+                result = None
+                error = exc
+
+            if result is not None:
+                break
+            is_last = attempt == 1
+            log.log(
+                logging.ERROR if is_last else logging.WARNING,
+                "judge (%s) call for company %s failed (attempt %d/%d)%s%s",
+                provider, company.id, attempt + 1, 2,
+                ", retrying" if not is_last else ", giving up",
+                f": {error}" if error else " (unparseable output)",
             )
-            result = response.parsed_output
 
         if result is None:
-            log.error("judge (%s) returned unparseable output for company %s",
-                      provider, company.id)
             continue
 
+        returned_refs = {v.employee_ref for v in result.verdicts}
+        expected_refs = set(range(len(batch)))
+        if returned_refs != expected_refs:
+            log.warning(
+                "judge (%s) ref mismatch for company %s: expected %s, got %s",
+                provider, company.id, expected_refs, returned_refs)
+
         for v in result.verdicts:
-            emp = refs.get(v.employee_ref)
-            if emp is None:
+            if not 0 <= v.employee_ref < len(batch):
                 continue
+            emp = batch[v.employee_ref]
             emp.verdict = Verdict(
                 verdict=v.verdict, confidence=v.confidence,
                 matched_designation=v.matched_designation,

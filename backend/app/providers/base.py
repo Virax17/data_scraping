@@ -11,6 +11,10 @@ import httpx
 log = logging.getLogger(__name__)
 
 RETRYABLE = {429, 500, 502, 503, 529}
+MAX_RETRY_DELAY = 30.0  # a server's Retry-After can be absurd (e.g. a daily
+                        # quota reset, seen as 86400s from Cerebras) — never
+                        # block a worker task on it; cap and let the caller's
+                        # own retry/backoff loop (or the user) decide instead
 
 
 class BaseClient:
@@ -42,8 +46,13 @@ class BaseClient:
                 await asyncio.sleep(min(2 ** attempt + random.random(), 30))
                 continue
             if resp.status_code in RETRYABLE and attempt < self._max_retries:
+                delay = min(2 ** attempt + random.random(), MAX_RETRY_DELAY)
                 retry_after = resp.headers.get("retry-after")
-                delay = float(retry_after) if retry_after else min(2 ** attempt + random.random(), 30)
+                if retry_after:
+                    try:
+                        delay = min(float(retry_after), MAX_RETRY_DELAY)
+                    except ValueError:
+                        pass  # non-numeric (e.g. HTTP-date) — keep the backoff delay
                 log.warning("HTTP %s from %s — retrying in %.1fs", resp.status_code, url, delay)
                 await asyncio.sleep(delay)
                 continue

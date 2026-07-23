@@ -7,14 +7,16 @@ import { TopBar } from "@/components/TopBar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ModeSelector } from "@/components/ModeSelector";
+import { SearchFiltersForm } from "@/components/SearchFiltersForm";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
+import { api, type SearchOptions } from "@/lib/api";
 
 export default function UploadPage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [autoMode, setAutoMode] = useState(true);
+  const [searchOptions, setSearchOptions] = useState<SearchOptions>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -34,7 +36,7 @@ export default function UploadPage() {
     setBusy(true);
     setError(null);
     try {
-      const { run_id } = await api.uploadRun(file, autoMode);
+      const { run_id } = await api.uploadRun(file, autoMode, searchOptions);
       router.push(`/runs/${run_id}`);
     } catch (e) {
       setError(String(e));
@@ -91,6 +93,7 @@ export default function UploadPage() {
                     <p className="text-sm font-medium text-foreground">Drag a file here, or click to browse</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       .xlsx, .xls, or .csv with company name and website columns
+                      (optional country/city columns override the region below per row)
                     </p>
                   </div>
                 </>
@@ -100,9 +103,16 @@ export default function UploadPage() {
             {error && <p className="mt-3 rounded-md bg-destructive-bg px-3 py-2 text-sm text-destructive">{error}</p>}
           </div>
 
-          <div className="space-y-4 rounded-lg border border-border bg-card p-5">
-            <h2 className="text-sm font-medium text-foreground">Mode</h2>
-            <ModeSelector autoMode={autoMode} onChange={setAutoMode} />
+          <div className="space-y-5 rounded-lg border border-border bg-card p-5">
+            <div className="space-y-4">
+              <h2 className="text-sm font-medium text-foreground">Mode</h2>
+              <ModeSelector autoMode={autoMode} onChange={setAutoMode} />
+            </div>
+
+            <div className="space-y-3 border-t border-border pt-4">
+              <h2 className="text-sm font-medium text-foreground">Target &amp; filters</h2>
+              <SearchFiltersForm value={searchOptions} onChange={setSearchOptions} />
+            </div>
 
             <Label className="block text-xs text-muted-foreground">
               Every other knob (budget caps, sweep size, judge threshold) lives in{" "}

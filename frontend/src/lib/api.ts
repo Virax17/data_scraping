@@ -2,8 +2,16 @@
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, body: string) {
+    super(`${status}: ${body}`);
+    this.status = status;
+  }
+}
+
 async function j<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new ApiError(res.status, await res.text());
   return res.json();
 }
 
@@ -21,6 +29,12 @@ export interface Run {
   credits_spent: number;
   error?: string | null;
   created_at: string;
+  stats: {
+    companies_found: number;
+    companies_not_found: number;
+    apollo_used: number;
+    lusha_used: number;
+  };
 }
 
 export interface CompanyRow {
@@ -58,15 +72,34 @@ export interface EmployeeRow {
   reveal: { status: string; email?: string; engine?: string };
 }
 
+export interface SearchOptions {
+  country?: string;
+  city?: string;
+  seniorities?: string[];
+  titles?: string[];
+  keywords?: string;
+  headcount_ranges?: string[];
+}
+
 export const api = {
-  uploadRun: (file: File, autoMode?: boolean) => {
+  uploadRun: (file: File, autoMode?: boolean, options?: SearchOptions) => {
     const fd = new FormData();
     fd.append("file", file);
     if (autoMode !== undefined) fd.append("auto_mode", String(autoMode));
+    if (options?.country) fd.append("country", options.country);
+    if (options?.city) fd.append("city", options.city);
+    const { country: _c, city: _ci, ...advanced } = options ?? {};
+    const hasAdvanced = Object.values(advanced).some((v) =>
+      Array.isArray(v) ? v.length > 0 : Boolean(v),
+    );
+    if (hasAdvanced) fd.append("search_options", JSON.stringify(advanced));
     return fetch(`${BASE}/api/runs`, { method: "POST", body: fd }).then(j<{ run_id: string }>);
   },
   listRuns: () => fetch(`${BASE}/api/runs`).then(j<Run[]>),
   getRun: (id: string) => fetch(`${BASE}/api/runs/${id}`).then(j<Run>),
+  stopRun: (id: string) => fetch(`${BASE}/api/runs/${id}/stop`, { method: "POST" }).then(j<Run>),
+  deleteRun: (id: string) =>
+    fetch(`${BASE}/api/runs/${id}`, { method: "DELETE" }).then(j<{ deleted: boolean }>),
   runEventsUrl: (id: string) => `${BASE}/api/runs/${id}/events`,
   runCompanies: (id: string) =>
     fetch(`${BASE}/api/runs/${id}/companies`).then(j<CompanyRow[]>),
@@ -86,6 +119,8 @@ export const api = {
     fetch(`${BASE}/api/runs/${runId}/reveal?force=${force}`, { method: "POST" }).then(j),
   exportUrl: (runId: string, includeUnrevealed = false) =>
     `${BASE}/api/runs/${runId}/export?include_unrevealed=${includeUnrevealed}`,
+  searchResultsUrl: (runId: string) =>
+    `${BASE}/api/runs/${runId}/export?search_only=true`,
   getSettings: () => fetch(`${BASE}/api/settings`).then(j<Record<string, unknown>>),
   putSettings: (values: Record<string, unknown>) =>
     fetch(`${BASE}/api/settings`, {

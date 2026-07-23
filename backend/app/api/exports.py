@@ -19,7 +19,12 @@ router = APIRouter(prefix="/api/runs", tags=["exports"])
 
 
 @router.get("/{run_id}/export")
-async def export_run(run_id: PydanticObjectId, include_unrevealed: bool = False):
+async def export_run(run_id: PydanticObjectId, include_unrevealed: bool = False,
+                     search_only: bool = False):
+    """search_only=true dumps every person the free sweep found — any verdict,
+    unjudged or prefiltered included — with no email and zero credits spent.
+    Lets you sanity-check region/title/keyword targeting before ever
+    approving or revealing anyone."""
     run = await Run.get(run_id)
     if not run:
         raise HTTPException(404)
@@ -31,11 +36,12 @@ async def export_run(run_id: PydanticObjectId, include_unrevealed: bool = False)
     contacts = []
     for e in employees:
         revealed = e.reveal.status in ("revealed", "cached")
-        if not revealed and not (include_unrevealed and e.effective_approved):
+        if not search_only and not revealed and not (include_unrevealed and e.effective_approved):
             continue
         c = by_id.get(e.company_id)
         org = (c.org if c else {}) or {}
         contacts.append({
+            "apollo_id": e.apollo_id,
             "first_name": e.first_name, "last_name": e.last_name,
             "full_name": e.full_name, "title": e.title, "seniority": e.seniority,
             "linkedin_url": e.linkedin_url,
@@ -86,10 +92,10 @@ async def export_run(run_id: PydanticObjectId, include_unrevealed: bool = False)
         "reason": c.notes or c.status,
     } for c in companies if c.status in ("unresolved", "failed")]
 
-    suffix = "_with_unrevealed" if include_unrevealed else ""
+    suffix = "_search_only" if search_only else ("_with_unrevealed" if include_unrevealed else "")
     out_path = Path(get_config().output_dir) / f"{run_id}{suffix}.xlsx"
     write_output_excel(contacts, run_log, needs_review, out_path)
-    if not include_unrevealed:
+    if not include_unrevealed and not search_only:
         run.export_path = str(out_path)
         await run.save()
 

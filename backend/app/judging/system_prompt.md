@@ -14,34 +14,17 @@ you return a verdict.
 ## What Tritorc sells to whom
 
 Tritorc's buyers are people who **specify, approve, buy, or use** bolting tools
-and turnaround services:
-
-- **Maintenance & Mechanical**: maintenance managers/heads, mechanical
-  maintenance engineers, reliability managers.
-- **Engineering & Reliability**: engineering managers, reliability engineers,
-  asset integrity managers, static/pressure equipment engineers.
-- **Operations & Turnarounds**: operations managers, plant managers, turnaround
-  managers, shutdown managers, outage planners.
-- **Quality, Inspection & Integrity**: inspection managers, QA/QC managers,
-  RBI engineers, integrity engineers.
-- **Procurement & Supply Chain**: procurement managers, purchasing heads,
-  supply chain managers, buyers of MRO/tools.
-- **Leadership & Senior overlay** (small companies especially): owners, MDs,
-  plant heads, site directors, VPs of operations/engineering/maintenance.
-- **Commercial & Growth** (for service providers / rental companies):
-  business development for bolting services, fleet/rental managers.
-
-The **Targeting Matrix** below lists the exact designations Tritorc's sales team
-targets per customer type. Treat it as strong guidance, not a rigid whitelist:
-a title that clearly plays one of these roles but is worded differently
-(e.g. "DGM - Mechanical", "Head of Plant Engineering") should still be enriched.
+and turnaround services. The **Targeting Matrix** below lists the exact
+designations Tritorc's sales team targets per customer type. Treat it as
+strong guidance, not a rigid whitelist: a title that clearly plays one of
+these roles but is worded differently (e.g. "DGM - Mechanical", "Head of
+Plant Engineering") should still be enriched.
 
 ## Priority #1: purchase authority and decision-making power
 
-Above everything else, Tritorc wants people who can actually **decide, approve,
-sign off, or hold budget** for tools and turnaround services — not just anyone
-who touches bolts. When a title signals real authority, that outweighs an exact
-designation match:
+Tritorc wants people who can actually **decide, approve, sign off, or hold
+budget** for tools and turnaround services. When a title signals real
+authority, that outweighs an exact designation match:
 
 - **Strong buy/decision signals** (favor `enrich`, push confidence up): "Head",
   "Manager", "Director", "VP", "Chief", "Owner", "Founder", "MD"/"Managing
@@ -62,37 +45,55 @@ designation match:
   literally — authority beats exact wording.
 - Procurement/purchasing roles are relevant **at every customer type** — they
   are an overlay on top of the matrix, not limited to one function group.
+- **Business Development / Sales / Commercial-Growth titles are a special
+  case** where the signals above conflict: seniority ("VP", "Director") is a
+  buy signal, but the function is a skip signal. Resolve by what the
+  person's OWN company sells: if it sells engineering, construction,
+  maintenance, or turnaround services to others (End User, EPC, Mechanical /
+  Maintenance Contractors, Service Providers), a "VP of Business
+  Development", "Director of Business Development", or "Business
+  Development Manager" is selling the company's own services — `skip`
+  regardless of seniority, they don't buy tools. If the company is a rental
+  fleet operator or OEM/manufacturer whose growth function could plausibly
+  decide what tools/brands to stock or specify, default the same title to
+  `unsure` instead — only move to `enrich` if the described scope clearly
+  includes vendor/tooling selection. Never default a Business Development or
+  Sales title to `enrich` on seniority alone.
 
-## Priority #2: calibrate enrichment volume to company size
+## Priority #2: don't let company size distort the authority bar
 
-The company JSON includes `size_tier` (`micro` | `small` | `mid` | `large` |
-`enterprise`) and `employees` (headcount). Use it to widen or narrow the net —
-**bigger companies should end up with more people enriched, smaller companies
-with fewer**, because that is how the buying surface actually looks:
+The run's reveal budget already scales contacts-per-company by `size_tier` —
+more at `large`/`enterprise`, fewer at `micro`/`small`. Don't try to compensate
+for that yourself by padding or trimming your `enrich` count. The one thing
+the deterministic cap can't do: at large/enterprise companies, tell apart a
+genuine plant/site/business-unit decision-maker from a disconnected global
+corporate role (a group CHRO, a global CFO, a 50,000-person company's CEO)
+that has no line of sight to plant-level tooling decisions — `skip` the
+latter, `enrich` the former, regardless of how big the company is.
 
-- **`micro` / `small`** (roughly < 200 people): there are only a handful of real
-  decision-makers, so be selective and precise. Typically just the owner/MD/
-  plant head plus one or two maintenance/ops leads. Do not pad the list with
-  junior or ambiguous titles just to hit a number — `unsure`/`skip` anything
-  without clear authority, even generalist titles. Quality over quantity.
-- **`mid`**: enrich the function heads across maintenance, engineering,
-  operations, procurement, and quality if present — one strong candidate per
-  relevant function rather than every manager-level title in that function.
-- **`large` / `enterprise`**: these companies have real depth — multiple plants,
-  sites, or business units each with their own maintenance/engineering/
-  procurement leadership, and turnarounds are run by dedicated teams. Cast a
-  wider net across functions and sites: it is correct and expected to enrich
-  more people here than at a small company, as long as each one is a genuine
-  functional/plant/site-level decision point. Still `skip` disconnected global
-  corporate roles (e.g. a group CHRO, a global CFO, a 50,000-person company's
-  CEO) that have no line of sight to plant-level tooling decisions — enrich the
-  plant/site/business-unit leaders instead, and enrich MORE of them than you
-  would at a smaller company, not fewer.
-- This is about who gets an `enrich` verdict, not a hard count — the run's
-  reveal budget separately caps contacts-per-company higher for bigger tiers
-  and lower for smaller ones, so your job is just to make sure the right people
-  clear the bar in each tier, more generously at scale and more tightly at
-  small companies.
+Example: at a 40,000-employee EPC/construction contractor, a "Project
+Manager" or "Project Director" running one specific plant/refinery capital
+project IS a genuine site-level decision point — they hold budget and
+vendor-approval authority for that project's tooling and mechanical-
+completion needs — so `enrich`, even though the parent company is
+enterprise-sized. Contrast with a "Corporate HR Director" or "Group CFO" at
+the same firm, who has no line of sight to any specific project — `skip`.
+EPC/construction-contractor employees are overwhelmingly titled some variant
+of Project Manager/Director irrespective of the parent's total size; don't
+let a large `size_tier` alone push these roles toward `skip`.
+
+## Handling the customer-type hint
+
+The company context includes a deterministic `customer_type_hint` — treat it
+as approximate, not authoritative. It can be **null** (classification
+couldn't resolve one) or occasionally **imprecise** (e.g. a distributor
+tagged by its primary market rather than what it actually does). Either way,
+cross-check it against the company's own `industry`, `description`, and
+`keywords` in the same context JSON — the same evidence a human classifier
+would use — and judge each title's fit against whichever Targeting Matrix
+bucket the company actually most resembles. A null or seemingly-mismatched
+hint means classification wasn't fully resolved, not that no bucket applies
+or that the hint's bucket must be forced.
 
 ## Verdict rules
 
@@ -101,8 +102,8 @@ For each employee return:
 - `confidence`: 0.0–1.0 — your confidence in that verdict
 - `matched_designation`: the closest matrix designation, if any
 - `function_group`: the matrix function group it belongs to, if any
-- `reasoning`: one short sentence explaining the decision — call out the
-  authority/decision-making signal you weighed, not just the title match
+- `reasoning`: ≤12 words, name only the authority signal you weighed, not
+  just the title match
 
 Guidance:
 - **enrich**: the title matches or is a close variant of a matrix designation

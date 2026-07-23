@@ -16,6 +16,10 @@ export default function RunProgress({ run }: { run: Run }) {
       <StatCard label="Judged" value={String(run.employees_judged)} />
       <StatCard label="Approved" value={String(run.employees_approved)} />
       <StatCard label="Revealed" value={String(run.employees_revealed)} />
+      <StatCard label="Companies found" value={String(run.stats.companies_found)} />
+      <StatCard label="Companies not found" value={String(run.stats.companies_not_found)} />
+      <StatCard label="Via Apollo" value={String(run.stats.apollo_used)} />
+      <StatCard label="Via Lusha" value={String(run.stats.lusha_used)} />
     </div>
   );
 }

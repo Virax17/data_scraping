@@ -10,12 +10,37 @@ from pathlib import Path
 
 REFERENCE_DIR = Path(__file__).parent.parent / "reference_data"
 
+
+# Apollo's org `industry` field is a small, closed taxonomy (the same ~dozen
+# values recur across any customer's export) -- an exact match against it is
+# high-precision and generalizes to any future company Apollo tags with the
+# same value, unlike matching against free text. Only values unambiguous
+# enough to map to exactly one customer type belong here. Both "oil & energy"
+# and, surprisingly, "construction" turned out too coarse to hardcode here:
+# real-world audit data showed "construction"-tagged companies splitting
+# across EPC firms, civil/earthwork contractors, pipeline maintenance
+# contractors, and even a plumbing-fittings OEM -- Apollo's tag reflects a
+# broad economic sector, not a Tritorc-specific customer-type distinction, so
+# those must fall through to the (weaker, but more specific) keyword rubric
+# below instead of a blanket tag mapping.
+_INDUSTRY_TAG_MAP: dict[str, str] = {
+    "utilities": "End User (Plant / Facility Owner)",
+}
+
+# Matched against the fuller industry_text blob (industry + description +
+# keywords). Deliberately excludes generic single-sector words ("power",
+# "steel", "cement", "mining", "lng", ...): real companies' Apollo keyword
+# tags routinely name every sector they SERVE, not just one they OWN/OPERATE
+# assets in (an EPC contractor's keywords mention "power", "mining", "oil and
+# gas" as project types it builds, not sectors it operates in) -- so those
+# words match too many unrelated customer types to be trustworthy signals.
+# Only phrases specific enough to describe a role/scope, not just a sector,
+# are listed.
 _CLASSIFICATION_TRIGGERS: list[tuple[str, list[str]]] = [
     (
         "End User (Plant / Facility Owner)",
-        ["oil & gas", "oil and gas", "power", "cement", "steel", "fertilizer",
-         "mining", "refinery", "refineries", "lng", "asset owner", "operator",
-         "plant owner", "facility owner"],
+        ["oil & gas", "oil and gas", "utilities", "utility", "refinery",
+         "refineries", "refining", "asset owner", "plant owner", "facility owner"],
     ),
     (
         "Industrial Equipment Rental Companies",
@@ -23,13 +48,13 @@ _CLASSIFICATION_TRIGGERS: list[tuple[str, list[str]]] = [
     ),
     (
         "EPC / Project Engineering Organizations",
-        ["epc", "engineering procurement construction", "project engineering",
-         "l&t", "larsen & toubro", "technip", "mcdermott", "saipem", "petrofac"],
+        ["epc", "engineering procurement construction", "project engineering"],
     ),
     (
         "Service Providers / Turnaround & Bolting Specialists",
-        ["turnaround", "shutdown", "bolting", "flange management",
-         "enermech", "bilfinger", "brock", "sparrows"],
+        ["turnaround", "shutdown", "bolting", "flange management", "hot tap",
+         "hot-tapping", "pipeline integrity", "integrity management",
+         "pipeline rehabilitation"],
     ),
     (
         "Mechanical / Maintenance Contractors",
@@ -37,7 +62,8 @@ _CLASSIFICATION_TRIGGERS: list[tuple[str, list[str]]] = [
     ),
     (
         "OEMs / Manufacturers (Equipment, Packages, Skids)",
-        ["manufacturer", "oem", "equipment packages", "skid package", "skids"],
+        ["manufacturer", "oem", "equipment packages", "skid package", "skids",
+         "fabrication", "fabricator"],
     ),
 ]
 
@@ -77,25 +103,46 @@ def _find_in_icp(company_name: str, icp_data: dict) -> tuple[str, str, str] | No
 
 
 def classify_company(company_name: str, industry_text: str = "",
-                     icp_data: dict | None = None) -> dict:
+                     icp_data: dict | None = None, industry: str | None = None) -> dict:
     """Returns {customer_type, confidence, matched_via, candidates}.
-    customer_type=None means ambiguous — the judge prompt handles it."""
+    customer_type=None means ambiguous — the judge prompt handles it.
+
+    Named-brand recognition (specific companies, e.g. "Larsen & Toubro",
+    "Brock Group") is handled entirely by the ICP list below, which matches
+    against the full curated company name, never a bare substring. The
+    keyword rubric only ever matches against industry_text (Apollo's
+    industry/description/keywords fields) — never the company's own name —
+    because generic sector words ("power", "steel", ...) routinely appear
+    inside unrelated companies' brand names (e.g. "Jones Power", a
+    civil-construction contractor with no power-plant ownership) and would
+    otherwise false-match on pure coincidence.
+
+    `industry` is Apollo's bare org industry tag, if the caller has it
+    separately from the fuller industry_text blob — checked first against
+    a small closed-taxonomy map since it's the highest-precision signal
+    available; falls through to the keyword rubric on industry_text when
+    the tag isn't one of the unambiguous ones (or wasn't passed)."""
     icp_data = icp_data if icp_data is not None else load_icp()
-    haystack = f"{company_name} {industry_text}".lower()
 
     icp_hit = _find_in_icp(company_name, icp_data)
     if icp_hit:
-        industry, category, matched_name = icp_hit
+        industry_cat, category, matched_name = icp_hit
         for substr, customer_type in _ICP_CATEGORY_TO_CUSTOMER_TYPE:
             if substr in category.lower():
                 return {
                     "customer_type": customer_type,
                     "confidence": "icp_match",
-                    "matched_via": f"ICP list: '{matched_name}' under {industry} / {category}",
+                    "matched_via": f"ICP list: '{matched_name}' under {industry_cat} / {category}",
                     "candidates": [customer_type],
                 }
-        haystack = f"{haystack} {industry}".lower()
 
+    tag_hit = _INDUSTRY_TAG_MAP.get((industry or "").strip().lower())
+    if tag_hit:
+        return {"customer_type": tag_hit, "confidence": "industry_tag_match",
+                "matched_via": f"Apollo industry tag '{industry}' maps to '{tag_hit}'",
+                "candidates": [tag_hit]}
+
+    haystack = industry_text.lower()
     matches = [ct for ct, triggers in _CLASSIFICATION_TRIGGERS
                if any(t in haystack for t in triggers)]
 
@@ -103,6 +150,7 @@ def classify_company(company_name: str, industry_text: str = "",
         return {"customer_type": matches[0], "confidence": "keyword_match",
                 "matched_via": f"keyword rubric matched '{matches[0]}'",
                 "candidates": matches}
+
     return {"customer_type": None, "confidence": "ambiguous",
             "matched_via": ("multiple keyword triggers matched" if matches
                             else "no ICP or keyword signal found"),

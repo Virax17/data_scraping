@@ -1,8 +1,9 @@
 "use client";
 
 import { Fragment, use, useEffect, useState } from "react";
-import { Download, ShieldCheck } from "lucide-react";
-import { api, type CompanyRow, type Run } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { Download, Search, ShieldCheck, Square, Trash2 } from "lucide-react";
+import { api, ApiError, type CompanyRow, type Run } from "@/lib/api";
 import { TopBar } from "@/components/TopBar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,27 +11,89 @@ import RunProgress from "@/components/RunProgress";
 import EmployeeReviewTable from "@/components/EmployeeReviewTable";
 import RevealConfirmDialog from "@/components/RevealConfirmDialog";
 
+const STOPPABLE_STATUSES = new Set([
+  "queued", "resolving", "sweeping", "judging", "awaiting_review", "revealing",
+]);
+
 export default function RunDetailPage({ params }: { params: Promise<{ runId: string }> }) {
   const { runId } = use(params);
+  const router = useRouter();
   const [run, setRun] = useState<Run | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [companies, setCompanies] = useState<CompanyRow[]>([]);
   const [openCompany, setOpenCompany] = useState<string | null>(null);
   const [showReveal, setShowReveal] = useState(false);
   const [includeUnrevealed, setIncludeUnrevealed] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function handleStop() {
+    if (!run || !confirm("Stop this run? In-progress companies will finish their current step, then halt.")) return;
+    setBusy(true);
+    try {
+      setRun(await api.stopRun(run.id));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        router.push("/runs");
+      } else {
+        console.error(err);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!run || !confirm(`Delete "${run.filename}" and all its data? This cannot be undone.`)) return;
+    try {
+      await api.deleteRun(run.id);
+    } catch (err) {
+      if (!(err instanceof ApiError && err.status === 404)) {
+        console.error(err);
+        return;
+      }
+    }
+    router.push("/runs");
+  }
 
   useEffect(() => {
-    api.getRun(runId).then(setRun).catch(console.error);
+    api
+      .getRun(runId)
+      .then(setRun)
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 404) {
+          setNotFound(true);
+        } else {
+          console.error(err);
+        }
+      });
+    if (notFound) return;
     const es = new EventSource(api.runEventsUrl(runId));
     es.onmessage = (e) => setRun(JSON.parse(e.data));
     es.onerror = () => es.close();
     return () => es.close();
-  }, [runId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runId, notFound]);
 
   useEffect(() => {
+    if (notFound) return;
     api.runCompanies(runId).then(setCompanies).catch(console.error);
     const t = setInterval(() => api.runCompanies(runId).then(setCompanies).catch(() => {}), 5000);
     return () => clearInterval(t);
-  }, [runId]);
+  }, [runId, notFound]);
+
+  if (notFound) {
+    return (
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <TopBar title="Run" />
+        <div className="flex-1 p-6 text-sm text-muted-foreground">
+          This run could not be found — it may have been deleted.{" "}
+          <a href="/runs" className="text-primary underline">
+            Back to dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   if (!run) {
     return (
@@ -53,12 +116,32 @@ export default function RunDetailPage({ params }: { params: Promise<{ runId: str
                 checked={includeUnrevealed}
                 onCheckedChange={(v) => setIncludeUnrevealed(Boolean(v))}
               />
-              Include unrevealed (search-only, free)
+              Include approved-but-unrevealed
             </label>
             <Button variant="outline" className="gap-1.5" onClick={() => setShowReveal(true)}>
               <ShieldCheck className="h-4 w-4" strokeWidth={2} />
               Reveal approved…
             </Button>
+            {STOPPABLE_STATUSES.has(run.status) && (
+              <Button variant="outline" className="gap-1.5" disabled={busy} onClick={handleStop}>
+                <Square className="h-4 w-4" strokeWidth={2} />
+                Stop
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className="gap-1.5 text-destructive hover:text-destructive"
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-4 w-4" strokeWidth={2} />
+              Delete
+            </Button>
+            <a href={api.searchResultsUrl(run.id)}>
+              <Button variant="outline" className="gap-1.5">
+                <Search className="h-4 w-4" strokeWidth={2} />
+                Search results only (free)
+              </Button>
+            </a>
             <a href={api.exportUrl(run.id, includeUnrevealed)}>
               <Button className="gap-1.5">
                 <Download className="h-4 w-4" strokeWidth={2} />

@@ -32,7 +32,7 @@ llm_model: claude-opus-4-8          # used when llm_provider: anthropic
 judge_batch_size: 150               # used when llm_provider: anthropic
 
 cerebras_model: gpt-oss-120b
-cerebras_judge_batch_size: 15        # small on purpose — fits the 8K context cap
+cerebras_judge_batch_size: 40        # trimmed prompt (PR1) + positional refs (PR4) give headroom under the 8K context cap
 
 verdict_cache: true
 never_send_titles: []             # cost-control pre-trim; OFF by default — LLM sees everyone
@@ -53,3 +53,12 @@ seniority_bands:
   - [vp, head, director]
   - [manager, senior]
   - [entry]
+
+# Default Apollo-style search customization, applied to every run unless the
+# upload form overrides it. Empty by default (matches today's behavior:
+# broad, unfiltered sweep). All are optional; see app/core/search_filters.py
+# and providers/apollo_client.py::people_search_page for how they're sent.
+search_defaults:
+  titles: []                 # person_titles — narrow the sweep to specific job titles
+  keywords: ""                # q_keywords — free-text profile keyword match
+  headcount_ranges: []        # organization_num_employees_ranges, e.g. ["1,50", "51,200"]

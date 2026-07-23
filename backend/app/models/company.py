@@ -18,6 +18,8 @@ class Company(Document):
     input_name: str
     website: Optional[str] = None
     domain: Optional[str] = None
+    target_country: Optional[str] = None  # region to sweep/reveal within; row column > run default
+    target_city: Optional[str] = None
 
     status: CompanyStatus = "queued"
     resolution_source: Optional[str] = None  # apollo_domain | apollo_name | lusha | None

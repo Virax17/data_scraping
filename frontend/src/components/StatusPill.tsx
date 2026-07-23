@@ -10,6 +10,7 @@ const CONFIG: Record<string, { label: string; className: string }> = {
   paused: { label: "Paused", className: "bg-accent text-accent-foreground" },
   done: { label: "Done", className: "bg-success-bg text-success" },
   failed: { label: "Failed", className: "bg-destructive-bg text-destructive" },
+  stopped: { label: "Stopped", className: "bg-secondary text-secondary-foreground" },
 };
 
 export function StatusPill({ status }: { status: string }) {

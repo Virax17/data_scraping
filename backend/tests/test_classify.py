@@ -37,6 +37,35 @@ def test_classify_ambiguous():
     assert result["confidence"] == "ambiguous"
 
 
+def test_classify_generic_sector_word_in_name_alone_does_not_match():
+    # Regression: "Jones Power" (a civil-construction/site-prep contractor,
+    # not a power-plant owner) used to false-match End User purely because
+    # "power" appeared in its own name. Generic sector words must only be
+    # checked against industry_text, never the company name.
+    result = classify_company("Jones Power", "civil construction and site-prep contractor",
+                              icp_data={})
+    assert result["customer_type"] != "End User (Plant / Facility Owner)"
+
+
+def test_classify_industry_tag_utilities_is_end_user():
+    result = classify_company("Example Utility Co", "utilities", icp_data={},
+                              industry="utilities")
+    assert result["customer_type"] == "End User (Plant / Facility Owner)"
+    assert result["confidence"] == "industry_tag_match"
+
+
+def test_classify_brand_name_substring_no_longer_false_matches():
+    # Regression: a bare "brock" keyword trigger used to catch "Brock
+    # Solutions" (an unrelated automation/controls company), which was
+    # actually meant to catch "Brock Group" (a turnaround/scaffolding
+    # services company). Brand recognition now lives only in the ICP list,
+    # which matches full names, not substrings -- so an unrelated company
+    # whose name merely contains a brand fragment must not false-match.
+    result = classify_company("Brock Solutions", "industrial automation and controls software",
+                              icp_data={})
+    assert result["customer_type"] != "Service Providers / Turnaround & Bolting Specialists"
+
+
 def test_size_tier_boundaries():
     assert size_tier(10) == "micro"
     assert size_tier(200) == "small"
@@ -57,4 +86,26 @@ def test_dedup_by_linkedin():
 
 def test_dedup_by_email_fallback():
     contacts = [{"email": "jane@acme.com"}, {"email": "JANE@ACME.COM"}]
+    assert len(dedup_contacts(contacts)) == 1
+
+
+def test_dedup_by_apollo_id_when_name_missing():
+    # Regression: Apollo's free preview never returns a real full_name, so
+    # every unrevealed person at a company shares an empty name+company key
+    # and used to collapse into one row. apollo_id must keep them distinct.
+    contacts = [
+        {"apollo_id": "p1", "full_name": None, "company_name": "Acme"},
+        {"apollo_id": "p2", "full_name": None, "company_name": "Acme"},
+        {"apollo_id": "p3", "full_name": None, "company_name": "Acme"},
+    ]
+    deduped = dedup_contacts(contacts)
+    assert len(deduped) == 3
+    assert {c["apollo_id"] for c in deduped} == {"p1", "p2", "p3"}
+
+
+def test_dedup_by_apollo_id_still_collapses_same_person():
+    contacts = [
+        {"apollo_id": "p1", "full_name": None, "company_name": "Acme"},
+        {"apollo_id": "p1", "full_name": None, "company_name": "Acme"},
+    ]
     assert len(dedup_contacts(contacts)) == 1

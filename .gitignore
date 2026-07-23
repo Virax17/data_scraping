@@ -7,11 +7,13 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+*.egg-info/
 
 # Node / Next.js
 node_modules/
 .next/
 npm-debug.log*
+tsconfig.tsbuildinfo
 
 # Outputs
 outputs/
@@ -19,3 +21,8 @@ outputs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local tooling (Claude Code)
+.agents/
+.claude/
+skills-lock.json

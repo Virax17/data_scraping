@@ -38,7 +38,9 @@
       "Turnaround Manager",
       "Shutdown Manager",
       "Turnaround Planning Manager",
-      "Planning & Scheduling Manager"
+      "Planning & Scheduling Manager",
+      "Project Manager",
+      "Capital Projects Manager"
     ],
     "Quality, Inspection & Integrity": [
       "Inspection Manager",
@@ -105,7 +107,10 @@
       "Project Engineering Manager",
       "Discipline Engineering Manager",
       "VP Operations",
-      "VP Projects"
+      "VP Projects",
+      "Director of Operations",
+      "Operations Manager",
+      "General Manager"
     ],
     "Maintenance & Mechanical": [
       "Lead Mechanical Engineer",
@@ -121,7 +126,8 @@
     ],
     "Procurement": [
       "Project Procurement Manager",
-      "Supply Chain Manager – Projects"
+      "Supply Chain Manager – Projects",
+      "Procurement Manager"
     ],
     "Quality, Inspection & Integrity": [
       "QA/QC Manager (Mechanical)",
@@ -132,7 +138,10 @@
   "Service Providers / Turnaround & Bolting Specialists": {
     "Leadership & Senior overlay": [
       "Managing Director",
-      "Operations Director"
+      "Operations Director",
+      "General Manager",
+      "Regional Manager",
+      "Branch Manager"
     ],
     "Engineering & Reliability": [
       "Technical Manager",
@@ -158,7 +167,10 @@
       "Project Manager",
       "Site Manager",
       "Construction Manager",
-      "Field Operations Manager"
+      "Field Operations Manager",
+      "General Manager",
+      "Operations Manager",
+      "Director of Operations"
     ],
     "Maintenance & Mechanical": [
       "Mechanical Supervisor",

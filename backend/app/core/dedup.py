@@ -1,5 +1,11 @@
-"""Contact dedup: LinkedIn URL -> email -> name+company. First wins; later
-duplicates append their company to a _dedup_companies note on the kept row."""
+"""Contact dedup: LinkedIn URL -> email -> Apollo id -> name+company. First
+wins; later duplicates append their company to a _dedup_companies note on the
+kept row.
+
+Apollo id sits ahead of name+company because Apollo's free preview never
+returns a real full_name (only first_name + an obfuscated last name) — every
+unrevealed person at a company would otherwise share the same
+("", company) key and collapse into a single row."""
 
 from __future__ import annotations
 
@@ -27,6 +33,9 @@ def _dedup_key(contact: dict) -> tuple:
     email = (contact.get("email") or "").strip().lower()
     if email:
         return ("email", email)
+    apollo_id = (contact.get("apollo_id") or "").strip()
+    if apollo_id:
+        return ("apollo_id", apollo_id)
     name = (contact.get("full_name") or "").strip().lower()
     company = (contact.get("company_name") or "").strip().lower()
     return ("name_company", name, company)

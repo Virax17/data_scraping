@@ -12,6 +12,8 @@ from beanie import PydanticObjectId
 from app.config import get_live_settings
 from app.core.budget import already_revealed, estimate_credits, mark_revealed
 from app.core.classify import classify_company
+from app.core.dedup import domain_from_website
+from app.core.search_filters import location_strings, matches_region
 from app.core.size_tier import size_tier
 from app.judging.judge import judge_company
 from app.judging.prefilter import should_prefilter
@@ -92,11 +94,29 @@ async def resolve_company(company: Company) -> bool:
 
     company.org = org
     if not company.domain:
-        company.domain = org.get("primary_domain") or org.get("domain")
+        company.domain = domain_from_website(org.get("primary_domain") or org.get("domain"))
+
+    if not company.domain and company.resolution_source != "lusha":
+        # Apollo matched an org by name but didn't return a usable domain.
+        # Without a domain the sweep has nothing to scope the search to and
+        # refuses to run at all (see sweep_company/people_search_page) — give
+        # Lusha a shot at resolving one before giving up on this company.
+        settings = await get_live_settings()
+        if settings.get("lusha_fallback", True):
+            lusha_org = await lusha().company_search_enrich(name=company.input_name)
+            if lusha_org:
+                lusha_domain = domain_from_website(lusha_org.get("domain"))
+                if lusha_domain:
+                    company.domain = lusha_domain
+                    company.resolution_source = f"{company.resolution_source}+lusha_domain"
+                    await _ledger(company.run_id, company.id, "lusha", "company_search_domain_fallback")
+
     industry_text = " ".join(str(x) for x in [
         org.get("industry"), org.get("short_description"), org.get("seo_description"),
+        " ".join(org.get("keywords") or []),
     ] if x)
-    company.classification = classify_company(company.input_name, industry_text)
+    company.classification = classify_company(company.input_name, industry_text,
+                                              industry=org.get("industry"))
     company.customer_type = company.classification.get("customer_type")
 
     settings = await get_live_settings()
@@ -108,15 +128,40 @@ async def resolve_company(company: Company) -> bool:
 
 # ---------------------------------------------------------------- sweep
 
+PER_PAGE = 100
+
+
 async def sweep_company(company: Company) -> int:
-    """Broad people sweep — NO title filter, everyone at the company (free).
-    Hard cap per company; beyond the cap, seniority-banded passes make sure
-    the most senior people are captured first."""
+    """Broad people sweep — NO title filter by default, everyone at the
+    company (free). Hard cap per company; beyond the cap, seniority-banded
+    passes make sure the most senior people are captured first.
+
+    Region targeting: when the company has a target_country/target_city
+    (resolved at upload from the run default or a per-row column override),
+    the sweep sends person_locations to Apollo, which does the real
+    narrowing server-side. Every stored preview is also re-checked
+    (matches_region) as a backstop — but Apollo's free preview never exposes
+    real per-person city/state/country (only has_* flags), so that check is
+    lenient on missing data and only drops someone when a real mismatch is
+    present."""
     company.status = "sweeping"
+    if not company.domain:
+        # people_search_page needs a domain to scope the search; without one
+        # there is nothing safe to sweep (see apollo_client.people_search_page).
+        company.notes = (company.notes + "; " if company.notes else "") + \
+            "no domain resolved — sweep skipped (nothing to scope the search to)"
     await company.save()
     settings = await get_live_settings()
+    run = await Run.get(company.run_id)
+    search_options = (run.search_options if run else None) or {}
     cap = int(settings.get("sweep_cap_per_company", 600))
     never_send = settings.get("never_send_titles") or []
+
+    person_locations = location_strings(company.target_country, company.target_city)
+    titles = search_options.get("titles") or None
+    keywords = search_options.get("keywords") or None
+    headcount_ranges = search_options.get("headcount_ranges") or None
+    custom_seniorities = search_options.get("seniorities") or None
 
     seen_ids: set[str] = set()
     stored = 0
@@ -128,6 +173,9 @@ async def sweep_company(company: Company) -> int:
             return
         if pid:
             seen_ids.add(pid)
+        if not matches_region(person.get("city"), person.get("state"), person.get("country"),
+                              company.target_country, company.target_city):
+            return
         title = person.get("title")
         emp = Employee(
             run_id=company.run_id, company_id=company.id,
@@ -154,7 +202,10 @@ async def sweep_company(company: Company) -> int:
         page = 1
         while stored < cap:
             result = await apollo().people_search_page(
-                company.domain, page=page, seniorities=seniorities)
+                company.domain, page=page, per_page=PER_PAGE, seniorities=seniorities,
+                person_locations=person_locations, person_titles=titles,
+                q_keywords=keywords,
+                organization_num_employees_ranges=headcount_ranges)
             people = result["people"]
             if not people:
                 return True
@@ -162,25 +213,40 @@ async def sweep_company(company: Company) -> int:
                 if stored >= cap:
                     return False
                 await _store(person)
-            pagination = result.get("pagination") or {}
-            total_pages = pagination.get("total_pages") or page
-            if page >= total_pages:
+            # Apollo's response has no pagination.total_pages field (verified
+            # live) — page by total_entries, falling back to "this page came
+            # back short of a full page" when total_entries is ever missing.
+            total_entries = result.get("total_entries")
+            if total_entries is not None:
+                if page * PER_PAGE >= total_entries:
+                    return True
+            elif len(people) < PER_PAGE:
                 return True
             page += 1
         return False
 
-    # First try unfiltered. If the cap cuts it off, restart per seniority band
-    # (most senior first) so the cap is spent on the right people.
-    org_size = (company.org or {}).get("estimated_num_employees") or 0
-    if org_size and org_size > cap:
-        for band in settings.get("seniority_bands", []):
-            if stored >= cap:
-                break
-            await _paginate(band)
+    # A user-specified seniority filter (search_options) wins outright — the
+    # sweep only ever pulls those seniorities. Otherwise: try unfiltered first
+    # (beyond region/title/keyword targeting above); if the cap cuts it off,
+    # restart per seniority band (most senior first) so the cap is spent on
+    # the right people.
+    if not company.domain:
+        pass  # nothing to scope the search to; company.notes already explains why
+    elif custom_seniorities:
+        await _paginate(custom_seniorities)
     else:
-        await _paginate(None)
+        org_size = (company.org or {}).get("estimated_num_employees") or 0
+        if org_size and org_size > cap:
+            for band in settings.get("seniority_bands", []):
+                if stored >= cap:
+                    break
+                await _paginate(band)
+        else:
+            await _paginate(None)
 
     company.employees_found = stored
+    remark = "0 employees found" if stored == 0 else f"{stored} employee{'s' if stored != 1 else ''} found"
+    company.notes = f"{company.notes}; {remark}" if company.notes else remark
     await company.save()
     return stored
 
@@ -237,6 +303,9 @@ async def reveal_company(company_id: PydanticObjectId) -> None:
     fallback for misses."""
     company = await Company.get(company_id)
     if company is None:
+        return
+    run = await Run.get(company.run_id)
+    if run and run.status == "stopped":
         return
     settings = await get_live_settings()
     freshness = int(settings.get("contact_freshness_days", 90))
@@ -334,9 +403,26 @@ async def reveal_company(company_id: PydanticObjectId) -> None:
 
 # ---------------------------------------------------------------- orchestration
 
+async def _bail_if_stopped(company: Company) -> bool:
+    """Cooperative cancellation checkpoint. A queue job can't be forcibly
+    killed mid-flight, so every stage boundary checks whether the user hit
+    Stop and, if so, marks this company terminal instead of continuing."""
+    run = await Run.get(company.run_id)
+    if not run or run.status != "stopped":
+        return False
+    company.status = "failed"
+    company.notes = (company.notes + "; " if company.notes else "") + "run stopped by user"
+    await company.save()
+    run.companies_done += 1
+    await run.save()
+    return True
+
+
 async def process_company(company_id: PydanticObjectId) -> None:
     company = await Company.get(company_id)
     if company is None:
+        return
+    if await _bail_if_stopped(company):
         return
     try:
         if not await resolve_company(company):
@@ -345,7 +431,11 @@ async def process_company(company_id: PydanticObjectId) -> None:
                 run.companies_done += 1
                 await run.save()
             return
+        if await _bail_if_stopped(company):
+            return
         await sweep_company(company)
+        if await _bail_if_stopped(company):
+            return
         await judge_and_gate(company)
 
         run = await Run.get(company.run_id)

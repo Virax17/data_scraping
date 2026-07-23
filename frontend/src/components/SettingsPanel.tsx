@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { ModeSelector } from "@/components/ModeSelector";
+import { SearchFiltersForm } from "@/components/SearchFiltersForm";
+import type { SearchOptions } from "@/lib/api";
 import {
   Select,
   SelectContent,
@@ -46,7 +48,7 @@ export default function SettingsPanel() {
     const editable: Record<string, unknown> = {};
     for (const k of [
       ...NUMERIC, ...BOOLEAN, "auto_mode", "reveal_cap_by_size_tier",
-      "llm_provider", "llm_model", "cerebras_model",
+      "llm_provider", "llm_model", "cerebras_model", "search_defaults",
     ]) {
       if (values && k in values) editable[k] = values[k];
     }
@@ -56,6 +58,7 @@ export default function SettingsPanel() {
 
   const isCerebras = values.llm_provider === "cerebras";
   const revealCapByTier = (values.reveal_cap_by_size_tier as Record<string, number>) ?? {};
+  const searchDefaults = (values.search_defaults as SearchOptions) ?? {};
 
   return (
     <div className="max-w-xl space-y-5 rounded-lg border border-border bg-card p-5">
@@ -153,6 +156,21 @@ export default function SettingsPanel() {
           />
         </div>
       ))}
+
+      <div>
+        <Label className="text-xs text-muted-foreground">Default search filters (all runs)</Label>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Applied to every new upload unless overridden on the upload form. Region
+          (country/city) is set per run, not here.
+        </p>
+        <div className="mt-2">
+          <SearchFiltersForm
+            hideRegion
+            value={searchDefaults}
+            onChange={(v) => set("search_defaults", v)}
+          />
+        </div>
+      </div>
 
       <div className="flex items-center gap-3">
         <Button onClick={save}>Save settings</Button>

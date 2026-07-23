@@ -10,7 +10,7 @@ from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 APP_DIR = Path(__file__).parent
 PROJECT_ROOT = APP_DIR.parent.parent
@@ -22,6 +22,10 @@ class Config(BaseModel):
     lusha_api_key: str = ""
     anthropic_api_key: str = ""
     cerebras_api_key: str = ""
+    # All usable Cerebras keys (CEREBRAS_API_KEY + any in CEREBRAS_API_KEYS,
+    # deduped). CerebrasClient round-robins across these so free-tier
+    # throughput scales with key count.
+    cerebras_api_keys: list[str] = Field(default_factory=list)
     mongo_uri: str = "mongodb://localhost:27017"
     mongo_db: str = "tritorc_enrich"
     jwt_secret: str = "change-me"
@@ -31,11 +35,17 @@ class Config(BaseModel):
 
 @lru_cache(maxsize=1)
 def get_config() -> Config:
+    single_cerebras_key = os.getenv("CEREBRAS_API_KEY", "")
+    extra_cerebras_keys = [k.strip() for k in os.getenv("CEREBRAS_API_KEYS", "").split(",") if k.strip()]
+    cerebras_api_keys = list(dict.fromkeys(
+        ([single_cerebras_key] if single_cerebras_key else []) + extra_cerebras_keys))
+
     return Config(
         apollo_api_key=os.getenv("APOLLO_API_KEY", ""),
         lusha_api_key=os.getenv("LUSHA_API_KEY", ""),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
-        cerebras_api_key=os.getenv("CEREBRAS_API_KEY", ""),
+        cerebras_api_key=single_cerebras_key,
+        cerebras_api_keys=cerebras_api_keys,
         mongo_uri=os.getenv("MONGO_URI", "mongodb://localhost:27017"),
         mongo_db=os.getenv("MONGO_DB", "tritorc_enrich"),
         jwt_secret=os.getenv("JWT_SECRET", "change-me"),

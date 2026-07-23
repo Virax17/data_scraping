@@ -8,7 +8,7 @@ from pydantic import Field
 
 RunStatus = Literal[
     "queued", "resolving", "sweeping", "judging",
-    "awaiting_review", "revealing", "done", "failed", "paused",
+    "awaiting_review", "revealing", "done", "failed", "paused", "stopped",
 ]
 
 
@@ -17,6 +17,7 @@ class Run(Document):
     status: RunStatus = "queued"
     auto_mode: bool = True
     settings_snapshot: dict = Field(default_factory=dict)
+    search_options: dict = Field(default_factory=dict)
     prompt_version: int | None = None
 
     companies_total: int = 0
