@@ -9,6 +9,7 @@ from app.db.session import ALL_DOCUMENTS
 from app.jobs import pipeline
 from app.models.company import Company
 from app.models.employee import Employee, Verdict
+from app.models.misc import AppSettings, CreditLedgerEntry
 from app.models.run import Run
 
 
@@ -23,6 +24,10 @@ class FakeApollo:
     async def organization_enrich(self, domain=None, name=None):
         return {"industry": "oil & gas", "estimated_num_employees": 300,
                 "primary_domain": domain, "short_description": "refinery operator"}
+
+    async def organization_search(self, name):
+        return {"industry": "oil & gas", "estimated_num_employees": 300,
+                "primary_domain": "acme.com", "short_description": "refinery operator"}
 
     async def people_search_page(self, domain, page=1, per_page=100, seniorities=None,
                                  person_locations=None, organization_locations=None,
@@ -100,6 +105,98 @@ async def test_full_company_pipeline(monkeypatch):
     assert jane2.reveal.credits == 0
 
 
+class FakeApolloMultinationalHeadcount:
+    """Mimics a multinational's org record (huge global headcount) resolved
+    against what is really a small regional/US subsidiary domain — the
+    sweep at that exact domain only turns up a couple of people, just like
+    the real Nexans/Dominion Global cases found in a live-export audit."""
+
+    async def organization_enrich(self, domain=None, name=None):
+        return {"industry": "manufacturer", "estimated_num_employees": 25700,
+                "primary_domain": domain, "short_description": "cable manufacturer"}
+
+    async def organization_search(self, name):
+        return {"industry": "manufacturer", "estimated_num_employees": 25700,
+                "primary_domain": "cableco.com", "short_description": "cable manufacturer"}
+
+    async def people_search_page(self, domain, page=1, per_page=100, seniorities=None,
+                                 person_locations=None, organization_locations=None,
+                                 person_titles=None, q_keywords=None,
+                                 organization_num_employees_ranges=None):
+        if page > 1:
+            return {"people": [], "total_entries": 2}
+        return {"people": [
+            {"id": "p1", "first_name": "Jane", "name": "Jane D.",
+             "title": "Reliability Engineer", "has_email": True},
+            {"id": "p2", "first_name": "Bob", "name": "Bob S.",
+             "title": "Regional Sales Manager", "has_email": False},
+        ], "total_entries": 2}
+
+    async def people_bulk_match(self, ids):
+        return {"matches": [], "credits_consumed": len(ids)}
+
+
+async def test_size_tier_corrected_when_sweep_far_undershoots_org_headcount(monkeypatch):
+    fake = FakeApolloMultinationalHeadcount()
+    monkeypatch.setattr(pipeline, "apollo", lambda: fake)
+    monkeypatch.setattr(pipeline, "judge_company", fake_judge)
+
+    run = Run(filename="t.xlsx", companies_total=1, auto_mode=False)
+    await run.insert()
+    company = Company(run_id=run.id, input_name="Global Cable Co",
+                      website="https://cableco.com", domain="cableco.com")
+    await company.insert()
+
+    await pipeline.process_company(company.id)
+
+    company = await Company.get(company.id)
+    assert company.size_tier == "micro"  # corrected from the org-implied "enterprise"
+    assert "size_tier corrected" in company.notes
+    assert company.status == "awaiting_review"
+
+
+class FakeApolloPaidCallsForbidden:
+    """Asserts the credit-costing endpoints are never called -- used to prove
+    free_resolution_only actually skips them, not just that it happens to
+    not need them."""
+
+    async def organization_enrich(self, domain=None, name=None):
+        raise AssertionError("organization_enrich (paid) must not be called when free_resolution_only")
+
+    async def organization_search(self, name):
+        return {"name": name, "industry": "oil & gas", "estimated_num_employees": 300,
+               "primary_domain": "acme.com"}
+
+
+class FakeLushaPaidCallForbidden:
+    async def company_search_enrich(self, domain=None, name=None):
+        raise AssertionError("lusha company_search_enrich (paid) must not be called when free_resolution_only")
+
+
+async def test_free_resolution_only_skips_paid_apollo_and_lusha_calls(monkeypatch):
+    # Regression: resolve_company used to call Apollo's paid organization_enrich
+    # (and Lusha's paid company_search_enrich as a fallback) unconditionally
+    # for every company, regardless of auto_mode/run_credit_budget -- the only
+    # credit-costing step NOT gated by the reveal budget. free_resolution_only
+    # must route through Apollo's free organization_search only.
+    monkeypatch.setattr(pipeline, "apollo", lambda: FakeApolloPaidCallsForbidden())
+    monkeypatch.setattr(pipeline, "lusha", lambda: FakeLushaPaidCallForbidden())
+    await AppSettings(key="app", values={"free_resolution_only": True}).insert()
+
+    run = Run(filename="t.xlsx", companies_total=1)
+    await run.insert()
+    company = Company(run_id=run.id, input_name="Acme Refinery", domain="acme.com")
+    await company.insert()
+
+    resolved = await pipeline.resolve_company(company)
+
+    assert resolved is True
+    assert company.resolution_source == "apollo_name"
+    assert company.org["estimated_num_employees"] == 300
+    ledger = await CreditLedgerEntry.find_all().to_list()
+    assert ledger == []  # zero Apollo/Lusha credits spent on resolution
+
+
 class FakeApolloMixedRegions:
     """A sweep that returns people from multiple countries — used to confirm
     the region hard-filter drops everyone outside the target office."""
@@ -107,6 +204,10 @@ class FakeApolloMixedRegions:
     async def organization_enrich(self, domain=None, name=None):
         return {"industry": "oil & gas", "estimated_num_employees": 300,
                 "primary_domain": domain, "short_description": "refinery operator"}
+
+    async def organization_search(self, name):
+        return {"industry": "oil & gas", "estimated_num_employees": 300,
+                "primary_domain": "acme.com", "short_description": "refinery operator"}
 
     async def people_search_page(self, domain, page=1, per_page=100, seniorities=None,
                                  person_locations=None, organization_locations=None,
@@ -224,6 +325,9 @@ class FakeLushaDomainFallback:
 
 
 async def test_resolve_falls_back_to_lusha_for_missing_domain(monkeypatch):
+    # This is specifically exercising the paid Lusha domain-fallback path,
+    # which free_resolution_only (the new default) skips entirely.
+    await AppSettings(key="app", values={"free_resolution_only": False}).insert()
     monkeypatch.setattr(pipeline, "apollo", lambda: FakeApolloNameOnlyNoDomain())
     fake_lusha = FakeLushaDomainFallback()
     monkeypatch.setattr(pipeline, "lusha", lambda: fake_lusha)

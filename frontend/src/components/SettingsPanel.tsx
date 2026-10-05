@@ -26,7 +26,7 @@ const NUMERIC = [
   "cerebras_judge_batch_size",
   "contact_freshness_days",
 ];
-const BOOLEAN = ["lusha_fallback", "reveal_phone", "verdict_cache"];
+const BOOLEAN = ["free_resolution_only", "lusha_fallback", "reveal_phone", "verdict_cache"];
 const SIZE_TIERS = ["micro", "small", "mid", "large", "enterprise"];
 
 export default function SettingsPanel() {

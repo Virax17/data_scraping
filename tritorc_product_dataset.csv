@@ -1,0 +1,34 @@
+industry,application,company_size,recommended_solution
+Oil & Gas,Pipeline flange bolting,Large,Controlled Bolting Services
+Oil & Gas,Refinery shutdown maintenance,Large,Hydraulic Torque Wrench + Flange Management
+Oil & Gas,Heat exchanger retubing,Medium,Tube Tools & Retubing Services
+Oil & Gas,Hot tapping on live pipeline,Large,Hot Tapping & Line Stopping Services
+Oil & Gas,Gas compressor maintenance,Medium,Bolt Tensioners
+Thermal Power,Steam turbine maintenance,Large,Turbine Closure System
+Thermal Power,Generator rotor maintenance,Large,Bolt Tensioners
+Thermal Power,Boiler feed pump maintenance,Medium,Hydraulic Torque Wrench
+Thermal Power,Heat exchanger maintenance,Medium,Tube Tools
+Wind Power,Wind turbine foundation bolting,Large,Hydraulic Torque Wrench
+Wind Power,Turbine bearing maintenance,Medium,Bolt Tensioners
+Offshore,Subsea pipeline maintenance,Large,Custom Hydraulic Bolt Tensioning
+Offshore,Offshore platform flange maintenance,Large,Flange Management Tools
+Construction & Infrastructure,Bridge structural bolting,Large,Hydraulic Torque Wrench
+Construction & Infrastructure,Metro bridge construction,Large,Torque Multipliers
+Construction & Infrastructure,Tower crane foundation bolting,Medium,Hydraulic Torque Wrench
+Steel Industry,Rolling mill maintenance,Large,Hydraulic Torque Wrench
+Steel Industry,Blast furnace maintenance,Large,Bolt Tensioners
+Steel Industry,Continuous casting machine maintenance,Large,Controlled Bolting Services
+Steel Industry,Foundation bolt tightening,Medium,Torque Multipliers
+Cement Industry,Crusher maintenance,Large,Hydraulic Torque Wrench
+Cement Industry,Ball mill maintenance,Large,Hydraulic Torque Wrench
+Cement Industry,Girth gear bolting,Large,Torque Multipliers
+Cement Industry,High-vibration equipment bolting,Medium,Electric Torque Wrench
+Fertilizer Industry,Reactor maintenance,Large,Controlled Bolting Services
+Fertilizer Industry,Heat exchanger maintenance,Medium,Tube Tools
+Sugar Industry,Tube cleaning and maintenance,Medium,Tube Cleaning Tools
+Sugar Industry,Mill maintenance,Medium,Hydraulic Torque Wrench
+Railway Industry,Bogie system maintenance,Medium,Hydraulic Torque Wrench
+Railway Industry,Engine component bolting,Medium,Electric Torque Wrench
+Mining Industry,Crusher maintenance,Large,Hydraulic Torque Wrench
+Mining Industry,Excavator and heavy equipment maintenance,Large,Torque Multipliers
+Mining Industry,Drilling equipment maintenance,Medium,Hydraulic Torque Wrench

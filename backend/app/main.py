@@ -40,6 +40,16 @@ app.include_router(settings.router)
 app.include_router(exports.router)
 
 
+@app.get("/")
+async def root():
+    return {
+        "message": "Tritorc Enrichment v3 Backend API is running",
+        "docs": "/docs",
+        "health": "/api/health"
+    }
+
+
 @app.get("/api/health")
 async def health():
     return {"ok": True}
+

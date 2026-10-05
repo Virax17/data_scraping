@@ -23,6 +23,28 @@ engine_order: [apollo, lusha]
 lusha_fallback: true
 reveal_phone: false               # email-only by default
 
+# When true, company resolution (resolve_company) NEVER calls Apollo's paid
+# organization_enrich or Lusha's paid company_search_enrich -- only Apollo's
+# free organization_search (name-based) is used. This is a separate cost
+# center from the reveal budget gate above: resolution runs automatically for
+# every uploaded company regardless of auto_mode/run_credit_budget, so those
+# settings alone do NOT stop Apollo/Lusha credit spend.
+#
+# Tradeoff (verified against the live Apollo API, not estimated): free
+# organization_search never returns estimated_num_employees, industry,
+# keywords, or short_description -- so in this mode size_tier is ~always
+# unresolved (every company falls back to the flat reveal_cap_per_company
+# instead of the size-tiered caps) and customer_type is ~always "ambiguous"
+# (the keyword/industry-tag classifier has nothing to read; only literal
+# icp_companies.json name matches still resolve). It also sometimes fails to
+# recover a domain for companies that didn't already have one in the
+# uploaded file (free search can mismatch to an unrelated subsidiary/page).
+# Deliberately kept true anyway -- zero Apollo/Lusha spend, chosen with this
+# tradeoff known -- flip to false for accurate size_tier/customer_type at
+# the cost of ~1 Apollo credit per company (this was ~308 of a 361-credit
+# run) plus occasional Lusha credits for domain recovery.
+free_resolution_only: true
+
 # llm_provider: "anthropic" | "cerebras". Cerebras is the free-tier default
 # for local testing (5 req/min, 8K context cap) — switch to anthropic for
 # production-quality judgments. judge_batch_size and llm_model are per-provider

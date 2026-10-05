@@ -14,7 +14,7 @@ from app.core.budget import already_revealed, estimate_credits, mark_revealed
 from app.core.classify import classify_company
 from app.core.dedup import domain_from_website
 from app.core.search_filters import location_strings, matches_region
-from app.core.size_tier import size_tier
+from app.core.size_tier import reconcile_with_sweep, size_tier
 from app.judging.judge import judge_company
 from app.judging.prefilter import should_prefilter
 from app.models.company import Company
@@ -63,28 +63,40 @@ async def _ledger(run_id, company_id, engine, action, credits=1, employee_id=Non
 
 async def resolve_company(company: Company) -> bool:
     """Resolution cascade (ported from v0.2): apollo domain -> apollo name ->
-    lusha domain/name -> unresolved."""
+    lusha domain/name -> unresolved.
+
+    apollo().organization_enrich (domain-based) and lusha().company_search_enrich
+    both COST CREDITS per call — unlike the free people-search sweep and the
+    reveal budget gate, this resolution step runs unconditionally for every
+    uploaded company regardless of auto_mode/run_credit_budget. When
+    `free_resolution_only` is set, both are skipped entirely and only
+    Apollo's free name-search (organization_search) is used — verified live
+    against the real Apollo API to never return estimated_num_employees,
+    industry, keywords, or short_description, so size_tier ends up ~always
+    unresolved and customer_type ~always "ambiguous" in this mode (see
+    settings.yaml's free_resolution_only comment for the full tradeoff)."""
     company.status = "resolving"
     await company.save()
+    settings = await get_live_settings()
+    free_only = bool(settings.get("free_resolution_only", False))
+    lusha_fallback = settings.get("lusha_fallback", True) and not free_only
 
     org = None
-    if company.domain:
+    if not free_only and company.domain:
         org = await apollo().organization_enrich(domain=company.domain)
         if org:
             company.resolution_source = "apollo_domain"
             await _ledger(company.run_id, company.id, "apollo", "org_enrich")
     if org is None and company.input_name:
-        org = await apollo().organization_search(company.input_name)
+        org = await apollo().organization_search(company.input_name)  # free
         if org:
             company.resolution_source = "apollo_name"
-    if org is None:
-        settings = await get_live_settings()
-        if settings.get("lusha_fallback", True):
-            org = await lusha().company_search_enrich(domain=company.domain,
-                                                      name=company.input_name)
-            if org:
-                company.resolution_source = "lusha"
-                await _ledger(company.run_id, company.id, "lusha", "company_search")
+    if org is None and lusha_fallback:
+        org = await lusha().company_search_enrich(domain=company.domain,
+                                                  name=company.input_name)
+        if org:
+            company.resolution_source = "lusha"
+            await _ledger(company.run_id, company.id, "lusha", "company_search")
 
     if org is None:
         company.status = "unresolved"
@@ -96,20 +108,18 @@ async def resolve_company(company: Company) -> bool:
     if not company.domain:
         company.domain = domain_from_website(org.get("primary_domain") or org.get("domain"))
 
-    if not company.domain and company.resolution_source != "lusha":
+    if not company.domain and company.resolution_source != "lusha" and lusha_fallback:
         # Apollo matched an org by name but didn't return a usable domain.
         # Without a domain the sweep has nothing to scope the search to and
         # refuses to run at all (see sweep_company/people_search_page) — give
         # Lusha a shot at resolving one before giving up on this company.
-        settings = await get_live_settings()
-        if settings.get("lusha_fallback", True):
-            lusha_org = await lusha().company_search_enrich(name=company.input_name)
-            if lusha_org:
-                lusha_domain = domain_from_website(lusha_org.get("domain"))
-                if lusha_domain:
-                    company.domain = lusha_domain
-                    company.resolution_source = f"{company.resolution_source}+lusha_domain"
-                    await _ledger(company.run_id, company.id, "lusha", "company_search_domain_fallback")
+        lusha_org = await lusha().company_search_enrich(name=company.input_name)
+        if lusha_org:
+            lusha_domain = domain_from_website(lusha_org.get("domain"))
+            if lusha_domain:
+                company.domain = lusha_domain
+                company.resolution_source = f"{company.resolution_source}+lusha_domain"
+                await _ledger(company.run_id, company.id, "lusha", "company_search_domain_fallback")
 
     industry_text = " ".join(str(x) for x in [
         org.get("industry"), org.get("short_description"), org.get("seo_description"),
@@ -119,7 +129,6 @@ async def resolve_company(company: Company) -> bool:
                                               industry=org.get("industry"))
     company.customer_type = company.classification.get("customer_type")
 
-    settings = await get_live_settings()
     company.size_tier = size_tier(org.get("estimated_num_employees"),
                                   settings.get("size_tier_bounds"))
     await company.save()
@@ -257,6 +266,18 @@ async def judge_and_gate(company: Company) -> None:
     company.status = "judging"
     await company.save()
     settings = await get_live_settings()
+
+    corrected_tier = reconcile_with_sweep(company.size_tier, company.employees_found,
+                                          settings.get("size_tier_bounds"))
+    if corrected_tier != company.size_tier:
+        log.info("company %s: size_tier %s -> %s (org headcount %s vs %s employees "
+                 "found in this run's own sweep — likely a multinational parent's "
+                 "headcount attached to a smaller domain)",
+                 company.id, company.size_tier, corrected_tier,
+                 (company.org or {}).get("estimated_num_employees"), company.employees_found)
+        company.notes = (f"{company.notes}; " if company.notes else "") + \
+            f"size_tier corrected {company.size_tier} -> {corrected_tier} (sweep found only {company.employees_found})"
+        company.size_tier = corrected_tier
 
     employees = await Employee.find(Employee.company_id == company.id).to_list()
     judged = await judge_company(company, employees)

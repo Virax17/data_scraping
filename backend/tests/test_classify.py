@@ -2,7 +2,7 @@
 
 from app.core.classify import classify_company, load_icp, load_targeting
 from app.core.dedup import dedup_contacts, domain_from_website
-from app.core.size_tier import size_tier
+from app.core.size_tier import reconcile_with_sweep, size_tier
 
 
 def test_domain_from_website():
@@ -72,6 +72,33 @@ def test_size_tier_boundaries():
     assert size_tier(201) == "mid"
     assert size_tier(5001) == "enterprise"
     assert size_tier(None) is None
+
+
+def test_reconcile_with_sweep_downtiers_multinational_headcount_mismatch():
+    # Regression: Apollo's org.estimated_num_employees can reflect a
+    # multinational parent's global headcount (e.g. Nexans ~25,700 globally)
+    # even when the resolved domain is really a small regional/US
+    # subsidiary -- confirmed via real-world research to inflate size_tier
+    # (and, via reveal_cap_by_size_tier, the reveal budget) far past what
+    # that specific office supports. A stark mismatch between the org-level
+    # figure and this run's own free sweep at that exact domain should
+    # down-tier to what the sweep actually supports.
+    assert reconcile_with_sweep("enterprise", employees_found=8) == "micro"
+    assert reconcile_with_sweep("large", employees_found=5) == "micro"
+
+
+def test_reconcile_with_sweep_leaves_small_gap_uncorrected():
+    # A one-tier gap is well within normal Apollo indexing incompleteness
+    # for a genuinely large company -- shouldn't be corrected.
+    assert reconcile_with_sweep("large", employees_found=500) == "large"
+
+
+def test_reconcile_with_sweep_ignores_non_large_tiers():
+    # micro/small/mid aren't at risk of the multinational-parent-headcount
+    # failure mode (there's no larger "true" tier to have been inflated
+    # from), so leave them untouched regardless of sweep count.
+    assert reconcile_with_sweep("small", employees_found=0) == "small"
+    assert reconcile_with_sweep(None, employees_found=0) is None
 
 
 def test_dedup_by_linkedin():

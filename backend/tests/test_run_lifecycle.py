@@ -61,9 +61,9 @@ async def test_process_company_bails_immediately_when_run_stopped(monkeypatch):
 
 async def test_process_company_bails_between_stages_when_stopped_mid_flight(monkeypatch):
     class FakeApollo:
-        async def organization_enrich(self, domain=None, name=None):
+        async def organization_search(self, name):
             return {"industry": "oil & gas", "estimated_num_employees": 50,
-                    "primary_domain": domain}
+                    "primary_domain": "acme.com"}
 
         async def people_search_page(self, *a, **kw):
             raise AssertionError("sweep must not run once the run is stopped mid-flight")
